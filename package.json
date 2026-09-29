@@ -1,0 +1,22 @@
+{
+  "name": "test_space_gravity",
+  "version": "0.1.0",
+  "description": "Turn-based space artillery: aim your missile through live gravity wells cast by planets, blow up the ones in your way, and climb a ranked ladder.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node server/test/physics.test.js && node server/test/simulateMatch.test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>test_space_gravity</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="menu" class="overlay">
+    <h1>test_space_gravity</h1>
+    <p class="tagline">Angry Birds, but the arena has its own gravity.</p>
+
+    <div id="identity-row">
+      <input id="name-input" maxlength="16" placeholder="Callsign" />
+    </div>
+
+    <div id="rank-badge" class="rank-badge hidden">
+      <span id="rank-swatch" class="rank-swatch"></span>
+      <span id="rank-text">Unranked</span>
+      <span id="rank-record"></span>
+    </div>
+
+    <div id="menu-actions">
+      <button id="btn-public">Public Match</button>
+      <button id="btn-ranked">Ranked Match</button>
+    </div>
+
+    <p id="menu-status"></p>
+  </div>
+
+  <div id="hud" class="overlay hidden">
+    <div class="hp-row">
+      <div class="hp-block" id="hp-you">
+        <span class="hp-name">You</span>
+        <div class="hp-bar"><div class="hp-fill" id="hp-fill-you"></div></div>
+      </div>
+      <div class="turn-indicator" id="turn-indicator">Your Turn</div>
+      <div class="hp-block" id="hp-opp">
+        <span class="hp-name">Opponent</span>
+        <div class="hp-bar"><div class="hp-fill" id="hp-fill-opp"></div></div>
+      </div>
+    </div>
+    <p class="hint">Drag the pad, aim through the gravity, release to fire.</p>
+    <div id="aim-pad">
+      <div id="aim-pad-inner">
+        <div id="aim-stick"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="result" class="overlay hidden">
+    <h2 id="result-title">Victory</h2>
+    <p id="result-rank"></p>
+    <button id="btn-again">Back to Menu</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/client/main.js"></script>
+</body>
+</html>
