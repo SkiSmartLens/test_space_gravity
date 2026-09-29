@@ -74,6 +74,7 @@ html, body {
 #rank-record { opacity: 0.6; font-weight: 400; font-size: 0.85rem; }
 
 #menu-actions { display: flex; gap: 16px; margin-top: 8px; }
+#menu-actions.hidden { display: none; }
 
 button {
   background: linear-gradient(180deg, #3c5bff, #263ac9);
@@ -91,6 +92,77 @@ button:hover { filter: brightness(1.1); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 #menu-status { min-height: 1.2em; opacity: 0.75; }
+
+.link-button {
+  background: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+  padding: 6px 10px;
+  font-weight: 500;
+}
+.link-button:hover { color: #fff; filter: none; }
+
+#private-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 20px 28px;
+  pointer-events: auto;
+}
+#private-panel.hidden { display: none; }
+
+.private-divider { opacity: 0.55; font-size: 0.85rem; margin: 2px 0; }
+
+#join-lobby-row { display: flex; gap: 10px; }
+#join-code-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+  width: 120px;
+}
+
+#private-error {
+  color: #ff8f8f;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+#lobby-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 24px 32px;
+  pointer-events: auto;
+}
+#lobby-waiting.hidden { display: none; }
+
+#lobby-code {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#lobby-waiting-actions { display: flex; align-items: center; gap: 12px; }
 
 #hud {
   justify-content: space-between;

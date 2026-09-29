@@ -27,9 +27,21 @@ const rankSwatch = el('rank-swatch');
 const rankText = el('rank-text');
 const rankRecord = el('rank-record');
 const menuStatus = el('menu-status');
+const menuActions = el('menu-actions');
 const btnPublic = el('btn-public');
 const btnRanked = el('btn-ranked');
+const btnPrivate = el('btn-private');
 const btnAgain = el('btn-again');
+const privatePanel = el('private-panel');
+const btnCreateLobby = el('btn-create-lobby');
+const joinCodeInput = el('join-code-input');
+const btnJoinLobby = el('btn-join-lobby');
+const privateError = el('private-error');
+const btnPrivateBack = el('btn-private-back');
+const lobbyWaiting = el('lobby-waiting');
+const lobbyCodeEl = el('lobby-code');
+const btnCopyCode = el('btn-copy-code');
+const btnCancelLobby = el('btn-cancel-lobby');
 const turnIndicator = el('turn-indicator');
 const hpFillYou = el('hp-fill-you');
 const hpFillOpp = el('hp-fill-opp');
@@ -81,8 +93,18 @@ socket.on('queue:searching', ({ mode }) => {
   menuStatus.textContent = `Searching for a ${mode} opponent...`;
 });
 
+socket.on('lobby:created', ({ code }) => {
+  showLobbyWaiting(code);
+});
+
+socket.on('lobby:error', ({ message }) => {
+  btnJoinLobby.disabled = false;
+  privateError.textContent = message;
+});
+
 socket.on('match:found', ({ you, state }) => {
   match = { id: state.id, mode: state.mode, you, state };
+  showDefaultMenu();
   menu.classList.add('hidden');
   hud.classList.remove('hidden');
   resultOverlay.classList.add('hidden');
@@ -113,7 +135,7 @@ socket.on('match:end', ({ winnerPlayerId, rankUpdates }) => {
     resultRank.textContent = `New rank: ${mine.rankLabel}`;
     renderRankBadge(mine.rank);
   } else {
-    resultRank.textContent = match.mode === 'ranked' ? '' : 'Public match — rank unaffected.';
+    resultRank.textContent = match.mode === 'ranked' ? '' : 'Rank unaffected.';
   }
 
   setTimeout(() => resultOverlay.classList.remove('hidden'), 600);
@@ -137,6 +159,69 @@ btnAgain.addEventListener('click', () => {
   menuStatus.textContent = '';
   btnPublic.disabled = false;
   btnRanked.disabled = false;
+  showDefaultMenu();
+});
+
+// --- Private lobby: create a code and wait, or join a friend's code. ---
+function showDefaultMenu() {
+  menuActions.classList.remove('hidden');
+  privatePanel.classList.add('hidden');
+  lobbyWaiting.classList.add('hidden');
+  privateError.textContent = '';
+  joinCodeInput.value = '';
+  btnJoinLobby.disabled = false;
+}
+
+function showPrivatePanel() {
+  menuActions.classList.add('hidden');
+  privatePanel.classList.remove('hidden');
+  lobbyWaiting.classList.add('hidden');
+  privateError.textContent = '';
+}
+
+function showLobbyWaiting(code) {
+  menuActions.classList.add('hidden');
+  privatePanel.classList.add('hidden');
+  lobbyWaiting.classList.remove('hidden');
+  lobbyCodeEl.textContent = code;
+}
+
+btnPrivate.addEventListener('click', showPrivatePanel);
+btnPrivateBack.addEventListener('click', showDefaultMenu);
+
+btnCreateLobby.addEventListener('click', () => {
+  socket.emit('lobby:create');
+});
+
+btnCancelLobby.addEventListener('click', () => {
+  socket.emit('lobby:cancel');
+  showDefaultMenu();
+});
+
+btnCopyCode.addEventListener('click', async () => {
+  const code = lobbyCodeEl.textContent;
+  try {
+    await navigator.clipboard.writeText(code);
+    const original = btnCopyCode.textContent;
+    btnCopyCode.textContent = 'Copied!';
+    setTimeout(() => { btnCopyCode.textContent = original; }, 1500);
+  } catch {
+    // Clipboard API unavailable (e.g. insecure context) -- the code is
+    // already big and visible on screen for a manual copy.
+  }
+});
+
+function submitJoinCode() {
+  const code = joinCodeInput.value.trim();
+  if (!code) return;
+  btnJoinLobby.disabled = true;
+  privateError.textContent = '';
+  socket.emit('lobby:join', { code });
+}
+
+btnJoinLobby.addEventListener('click', submitJoinCode);
+joinCodeInput.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Enter') submitJoinCode();
 });
 
 function renderRankBadge(rank, wins, losses) {

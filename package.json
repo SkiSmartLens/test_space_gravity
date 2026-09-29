@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node server/test/physics.test.js && node server/test/simulateMatch.test.js"
+    "test": "node server/test/physics.test.js && node server/test/simulateMatch.test.js && node server/test/lobby.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

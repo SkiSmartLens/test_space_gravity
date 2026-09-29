@@ -29,9 +29,31 @@
     <div id="menu-actions">
       <button id="btn-public">Public Match</button>
       <button id="btn-ranked">Ranked Match</button>
+      <button id="btn-private">Private Lobby</button>
     </div>
 
     <p id="menu-status"></p>
+
+    <div id="private-panel" class="hidden">
+      <button id="btn-create-lobby">Create Lobby</button>
+      <p class="private-divider">or join a friend's lobby</p>
+      <div id="join-lobby-row">
+        <input id="join-code-input" maxlength="5" placeholder="CODE" autocapitalize="characters" />
+        <button id="btn-join-lobby">Join</button>
+      </div>
+      <p id="private-error"></p>
+      <button id="btn-private-back" class="link-button">Back</button>
+    </div>
+
+    <div id="lobby-waiting" class="hidden">
+      <p>Share this code with your opponent:</p>
+      <div id="lobby-code"></div>
+      <div id="lobby-waiting-actions">
+        <button id="btn-copy-code">Copy Code</button>
+        <button id="btn-cancel-lobby" class="link-button">Cancel</button>
+      </div>
+      <p class="hint">Waiting for them to join...</p>
+    </div>
   </div>
 
   <div id="hud" class="overlay hidden">

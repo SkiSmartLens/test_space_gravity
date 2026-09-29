@@ -18,6 +18,9 @@ way and its gravity is gone for the rest of the match.
   Bronze → Silver → Gold → Platinum → Diamond → Mythic, each with four
   divisions (Bronze/Silver never demote on a loss; Mythic uses a raw
   rating instead of divisions).
+- **Private lobbies**: create one to get a short code, send it to a friend,
+  they join with it and you're paired directly — no queue, no randomness.
+  Doesn't affect rank, same as a public match.
 - Rendered as a flat 2D physics plane viewed through a tilted, dolly-able
   3D camera — the "kind of 2D, kind of 3D" look — and the camera pulls
   way back during flight so you can see the whole gravity field between
@@ -43,26 +46,28 @@ you edit.
 npm test
 ```
 
-Runs two checks:
+Runs three checks:
 - `server/test/physics.test.js` — unit tests for the gravity simulation
   (planet hits, gravity disappearing once a planet is destroyed, curved
   trajectories) and the rank ladder math.
 - `server/test/simulateMatch.test.js` — boots a real server and drives two
   `socket.io-client` connections through matchmaking, turn enforcement,
   a resolved shot, and a disconnect-forfeit with a ranked rank update.
+- `server/test/lobby.test.js` — creates a private lobby, checks a wrong code
+  is rejected and a right code pairs the two players, and that a private
+  match doesn't touch rank.
 
 ## How it's built
 
-- `public/shared/physics.js` — the gravity + missile flight simulation.
-  It's a plain ES module imported by *both* the server (as the
-  authoritative resolver) and the browser (for the live aim-preview ghost
-  trail), so a shot always resolves exactly the way it looked while aiming.
+- `public/shared/physics.js` — the gravity + missile flight simulation. A
+  plain ES module imported directly by the server as the authoritative
+  shot resolver.
 - `public/shared/ranks.js` — the rank ladder, also shared so the client can
   render your badge without asking the server.
 - `server/` — Express + Socket.IO. `matchmaking.js` is a simple FIFO queue
-  per mode, `match.js` generates the arena and resolves fire events,
-  `playerStore.js` persists rank/win-loss to a JSON file (see note below),
-  `ranking.js`-equivalent logic lives in `shared/ranks.js`.
+  per mode, `lobby.js` handles private-lobby codes (create/join/cancel),
+  `match.js` generates the arena and resolves fire events, `playerStore.js`
+  persists rank/win-loss to a JSON file (see note below).
 - `public/client/` — vanilla JS + Three.js (loaded via CDN import map, no
   build step). `game.js` owns the 3D scene/camera/effects, `main.js` wires
   up the menu, Socket.IO events, and the drag-to-aim control pad.
