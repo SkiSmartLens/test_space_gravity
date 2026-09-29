@@ -213,6 +213,37 @@ function buildShipShape() {
   return s;
 }
 
+// The rocket mounted on a ship during its aiming turn -- rotates live with
+// the aim-pad drag so you can actually see the direction you're about to
+// fire in, before you release. Not a trajectory guide (no predicted path),
+// just the weapon itself pointing where your input currently points it,
+// same as a tank turret or the pulled-back slingshot in the original
+// Angry Birds.
+function buildAimRocket() {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd8dce6, roughness: 0.35, metalness: 0.6 });
+  const tipMat = new THREE.MeshStandardMaterial({ color: 0xff6a3d, emissive: 0xff3300, emissiveIntensity: 0.7, roughness: 0.3 });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 22, 12), bodyMat);
+  body.rotation.z = Math.PI / 2;
+  group.add(body);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(3.2, 10, 12), tipMat);
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.x = 16;
+  group.add(nose);
+
+  const finGeo = new THREE.BoxGeometry(7, 1.2, 9);
+  const finTop = new THREE.Mesh(finGeo, bodyMat);
+  finTop.position.set(-9, 4.5, 0);
+  group.add(finTop);
+  const finBottom = new THREE.Mesh(finGeo, bodyMat);
+  finBottom.position.set(-9, -4.5, 0);
+  group.add(finBottom);
+
+  return group;
+}
+
 function buildShip(bodyColor) {
   const group = new THREE.Group();
   const hullMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.35, metalness: 0.6 });
@@ -244,7 +275,12 @@ function buildShip(bodyColor) {
   engineGlow.position.set(-31 * 1.4, 0, 0);
   group.add(engineGlow);
 
-  return { group, hull, engineGlow };
+  const aimRocket = buildAimRocket();
+  aimRocket.position.set(15 * 1.4, 22 * 1.4, 0);
+  aimRocket.visible = false;
+  group.add(aimRocket);
+
+  return { group, hull, engineGlow, aimRocket };
 }
 
 // Physics is a flat 2D plane; we render it with a tilted perspective camera
@@ -368,11 +404,11 @@ export class Game {
 
     state.ships.forEach((ship) => {
       const bodyColor = ship.id === 0 || ship.facing > 0 ? 0x4fd1ff : 0xff6b8b;
-      const { group, hull, engineGlow } = buildShip(bodyColor);
+      const { group, hull, engineGlow, aimRocket } = buildShip(bodyColor);
       group.rotation.y = ship.facing > 0 ? 0 : Math.PI;
       group.position.set(this.worldX(ship.x), this.worldY(ship.y), 0);
       this.scene.add(group);
-      this.shipMeshes.set(ship.id, { group, body: hull, engineGlow, baseColor: bodyColor });
+      this.shipMeshes.set(ship.id, { group, body: hull, engineGlow, aimRocket, baseColor: bodyColor });
     });
 
     this.missile = new THREE.Mesh(
@@ -405,6 +441,23 @@ export class Game {
     setTimeout(() => entry.body.material.color.setHex(original), 160);
     this._spawnExplosion(entry.group.position.clone(), 34, { small: true });
     this._triggerShake(16, 320);
+  }
+
+  // Rotates the mounted rocket on a ship to match the current aim angle
+  // (same convention as launchVelocity's angle: 0 = that ship's own
+  // forward, regardless of which side it's on).
+  setAim(shipId, angle, power = 1) {
+    const entry = this.shipMeshes.get(shipId);
+    if (!entry?.aimRocket) return;
+    entry.aimRocket.rotation.z = angle;
+    entry.aimRocket.scale.setScalar(0.8 + Math.max(0, Math.min(1, power)) * 0.4);
+  }
+
+  showAimRocket(shipId, visible) {
+    const entry = this.shipMeshes.get(shipId);
+    if (!entry?.aimRocket) return;
+    entry.aimRocket.visible = visible;
+    if (visible) this.setAim(shipId, 0, 0.5); // reset to a neutral, loaded pose
   }
 
   _addEffect(mesh, duration, update) {

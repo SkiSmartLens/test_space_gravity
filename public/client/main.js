@@ -104,6 +104,8 @@ socket.on('lobby:error', ({ message }) => {
 
 socket.on('match:found', ({ you, state }) => {
   match = { id: state.id, mode: state.mode, you, state };
+  pendingMatchEnd = null;
+  animationInFlight = false;
   showDefaultMenu();
   menu.classList.add('hidden');
   hud.classList.remove('hidden');
@@ -113,20 +115,20 @@ socket.on('match:found', ({ you, state }) => {
   updateHud();
 });
 
-socket.on('turn:resolved', (payload) => {
-  if (!match) return;
-  match.state = payload.state;
+// The server emits 'turn:resolved' and, for a finishing blow, 'match:end'
+// back to back in the same tick -- but the missile still has to visually
+// fly there and hit. Showing the result screen as soon as 'match:end'
+// arrived (on its own flat timer) meant a winning shot could pop up
+// "Victory" while the missile was still mid-flight, so you never actually
+// saw it land. The result is now only shown once the local playShot()
+// animation for that final shot has actually finished; animationInFlight
+// tracks that so a forfeit (match:end with no shot in progress) still
+// shows immediately instead of waiting forever for an animation that
+// isn't happening.
+let animationInFlight = false;
+let pendingMatchEnd = null;
 
-  game.playShot(payload.path, () => {
-    if (payload.destroyedPlanetId) game.destroyPlanet(payload.destroyedPlanetId);
-    if (payload.damagedShipId) game.flashShip(payload.damagedShipId);
-    updateHud();
-    if (!payload.finished) focusForTurn();
-  });
-});
-
-socket.on('match:end', ({ winnerPlayerId, rankUpdates }) => {
-  if (!match) return;
+function showMatchEnd({ winnerPlayerId, rankUpdates }) {
   const youWon = winnerPlayerId === identity.playerId;
   resultTitle.textContent = youWon ? 'Victory' : 'Defeat';
 
@@ -138,7 +140,38 @@ socket.on('match:end', ({ winnerPlayerId, rankUpdates }) => {
     resultRank.textContent = match.mode === 'ranked' ? '' : 'Rank unaffected.';
   }
 
-  setTimeout(() => resultOverlay.classList.remove('hidden'), 600);
+  setTimeout(() => resultOverlay.classList.remove('hidden'), 400);
+}
+
+socket.on('turn:resolved', (payload) => {
+  if (!match) return;
+  match.state = payload.state;
+  animationInFlight = true;
+
+  game.playShot(payload.path, () => {
+    animationInFlight = false;
+    if (payload.destroyedPlanetId) game.destroyPlanet(payload.destroyedPlanetId);
+    if (payload.damagedShipId) game.flashShip(payload.damagedShipId);
+    updateHud();
+    if (!payload.finished) {
+      focusForTurn();
+    } else if (pendingMatchEnd) {
+      showMatchEnd(pendingMatchEnd);
+      pendingMatchEnd = null;
+    }
+    // else: match:end just hasn't arrived over the network yet -- its own
+    // handler will show the result immediately once it does, since
+    // animationInFlight is false by then.
+  });
+});
+
+socket.on('match:end', (payload) => {
+  if (!match) return;
+  if (animationInFlight) {
+    pendingMatchEnd = payload;
+  } else {
+    showMatchEnd(payload);
+  }
 });
 
 btnPublic.addEventListener('click', () => joinQueue('public'));
@@ -246,6 +279,10 @@ function updateHud() {
   const yourTurn = match.state.turn === match.you;
   turnIndicator.textContent = yourTurn ? 'Your Turn' : "Opponent's Turn";
   aimPad.style.visibility = yourTurn && !match.state.finished ? 'visible' : 'hidden';
+
+  const activeShip = match.state.ships[match.state.turn];
+  game.showAimRocket(activeShip.id, !match.state.finished);
+  game.showAimRocket(match.state.ships[1 - match.state.turn].id, false);
 }
 
 function focusForTurn() {
@@ -282,8 +319,11 @@ function onPointerMove(evt) {
   const clampedDx = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dx));
   const clampedDy = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dy));
   aimStick.style.transform = `translate(${clampedDx}px, ${clampedDy}px)`;
-  // Deliberately no predicted-trajectory preview here -- you judge the shot
-  // yourself, same as the original Angry Birds slingshot.
+  // No predicted-trajectory preview -- you judge the shot yourself, same as
+  // the original Angry Birds slingshot. The mounted rocket on your ship
+  // does rotate live to show your current aim direction, same as a turret.
+  const { angle, power } = currentAimFromVector(dx, dy);
+  game.setAim(myShip().id, angle, power);
 }
 
 function onPointerUp(evt) {
@@ -296,6 +336,7 @@ function onPointerUp(evt) {
   if (Math.hypot(dx, dy) < 8) return; // treat as a cancelled tap, not a shot
   const { angle, power } = currentAimFromVector(dx, dy);
   socket.emit('fire', { matchId: match.id, angle, power });
+  game.showAimRocket(myShip().id, false);
   aimPad.style.visibility = 'hidden';
 }
 
