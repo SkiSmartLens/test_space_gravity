@@ -48,6 +48,7 @@ nameInput.addEventListener('change', () => {
 const canvas = el('scene');
 const game = new Game(canvas, ARENA);
 game.start();
+window.__game = game; // debug hook for manual/automated visual testing
 
 const socket = io();
 let match = null; // { id, mode, you, state }
