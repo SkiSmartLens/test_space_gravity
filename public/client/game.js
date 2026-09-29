@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { simulateFlight, launchVelocity } from '../shared/physics.js';
 
 const PLANET_PALETTES = [
   { base: 0xc97b3f, blotch: 0x8f4f26 },
@@ -11,7 +10,7 @@ const PLANET_PALETTES = [
 ];
 
 const MIN_ZOOM = 0.35;
-const MAX_ZOOM = 3.5;
+const MAX_ZOOM = 6.5;
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -32,6 +31,38 @@ function hashStringToSeed(str) {
 
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
+}
+
+// A soft radial-gradient billboard texture -- the standard trick for
+// realistic fire/glow/smoke VFX (a camera-facing sprite that fades at the
+// edges) instead of a geometric sphere with a hard, faceted silhouette.
+function makeGlowTexture(hex) {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const c = new THREE.Color(hex);
+  const rgb = `${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}`;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, `rgba(${rgb}, 1)`);
+  grad.addColorStop(0.4, `rgba(${rgb}, 0.7)`);
+  grad.addColorStop(1, `rgba(${rgb}, 0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function makeGlowSprite(hex, additive = true) {
+  const mat = new THREE.SpriteMaterial({
+    map: makeGlowTexture(hex),
+    transparent: true,
+    depthWrite: false,
+    blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+  });
+  return new THREE.Sprite(mat);
 }
 
 // Bakes a procedural surface texture whose pattern depends on the planet's
@@ -192,23 +223,23 @@ function buildShip(bodyColor) {
     bevelSegments: 2,
   });
   geo.translate(0, 0, -9);
-  geo.scale(0.75, 0.75, 0.75);
+  geo.scale(1.4, 1.4, 1.4);
   const hull = new THREE.Mesh(geo, hullMat);
   group.add(hull);
 
   const canopy = new THREE.Mesh(
-    new THREE.SphereGeometry(6, 16, 12),
+    new THREE.SphereGeometry(8.4, 16, 12),
     new THREE.MeshStandardMaterial({ color: 0x9fe3ff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.75, emissive: 0x2255aa, emissiveIntensity: 0.3 }),
   );
   canopy.scale.set(1.1, 0.8, 0.7);
-  canopy.position.set(3, 9, 0);
+  canopy.position.set(3 * 1.4, 9 * 1.4, 0);
   group.add(canopy);
 
   const engineGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(4, 10, 10),
+    new THREE.SphereGeometry(5.6, 10, 10),
     new THREE.MeshBasicMaterial({ color: 0x8fe0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
   );
-  engineGlow.position.set(-31, 0, 0);
+  engineGlow.position.set(-31 * 1.4, 0, 0);
   group.add(engineGlow);
 
   return { group, hull, engineGlow };
@@ -226,7 +257,11 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x05060c);
-    this.scene.fog = new THREE.FogExp2(0x05060c, 0.00018);
+    // Kept deliberately faint: at the old density (0.00018) the automatic
+    // zoom-out during a shot's flight (camera distance up to ~5600) pushed
+    // enough fog between the camera and everything else that the whole
+    // scene visibly dimmed the instant you fired.
+    this.scene.fog = new THREE.FogExp2(0x05060c, 0.00004);
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 10, 24000);
     this.camState = { x: 0, y: 0, dist: 1400 };
@@ -236,7 +271,6 @@ export class Game {
 
     this.planetMeshes = new Map();
     this.shipMeshes = new Map();
-    this.ghostLine = null;
     this.missile = null;
     this.effects = [];
     this.lights = [];
@@ -388,14 +422,18 @@ export class Game {
   _spawnExplosion(position, radius, opts = {}) {
     const sizeBasis = Math.min(radius, 120) + Math.sqrt(Math.max(0, radius - 120)) * 5;
 
-    const flash = new THREE.Mesh(
-      new THREE.SphereGeometry(sizeBasis * 0.6, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
+    // Flash and fireball are soft camera-facing glow sprites rather than
+    // geometric spheres -- a faceted lit sphere reads as a shaded ball, not
+    // fire; a radial-gradient billboard is the standard real-VFX technique
+    // for an actual glow/flame look.
+    const flash = makeGlowSprite(0xfff6d8, true);
     flash.position.copy(position);
-    this._addEffect(flash, 180, (m, t) => {
-      m.scale.setScalar(1 + t * 3.4);
-      m.material.opacity = 1 - t;
+    const flashBase = sizeBasis * 1.3;
+    flash.scale.set(flashBase, flashBase, 1);
+    this._addEffect(flash, 180, (spr, t) => {
+      const s = flashBase * (1 + t * 3.4);
+      spr.scale.set(s, s, 1);
+      spr.material.opacity = 1 - t;
     });
 
     // A real point light so the blast actually illuminates nearby planets
@@ -418,14 +456,14 @@ export class Game {
       { color: 0xff5a2e, growth: 6.4, duration: 900 },
     ];
     for (const spec of fireballSpecs) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(sizeBasis * 0.42, 20, 20),
-        new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.85 }),
-      );
-      mesh.position.copy(position);
-      this._addEffect(mesh, spec.duration, (m, t) => {
-        m.scale.setScalar(1 + easeOutCubic(t) * spec.growth);
-        m.material.opacity = 0.85 * (1 - t) * (1 - t);
+      const sprite = makeGlowSprite(spec.color, true);
+      sprite.position.copy(position);
+      const base = sizeBasis * 0.9;
+      sprite.scale.set(base, base, 1);
+      this._addEffect(sprite, spec.duration, (spr, t) => {
+        const s = base * (1 + easeOutCubic(t) * spec.growth);
+        spr.scale.set(s, s, 1);
+        spr.material.opacity = 0.85 * (1 - t) * (1 - t);
       });
     }
 
@@ -439,25 +477,27 @@ export class Game {
       m.material.opacity = 0.8 * (1 - t);
     });
 
-    // Smoke: soft dark puffs that drift outward slowly and linger. Count
-    // (not size) scales with the real radius, so giants throw more puffs
-    // across a wider spread rather than each puff ballooning individually.
+    // Smoke: soft dark puffs (glow sprites, not additive -- overlapping
+    // smoke should darken/thicken, not brighten) that drift outward slowly
+    // and linger. Count (not size) scales with the real radius, so giants
+    // throw more puffs across a wider spread rather than each ballooning.
     const smokeCount = opts.small ? 4 : Math.round(7 + Math.min(radius, 300) / 40);
     const spread = opts.small ? 1 : 1 + Math.min(radius, 300) / 200;
     for (let i = 0; i < smokeCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = (20 + Math.random() * 90) * spread;
       const dir = new THREE.Vector3(Math.cos(angle), Math.sin(angle) * 0.6 + 0.3, (Math.random() - 0.5));
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(sizeBasis * (0.25 + Math.random() * 0.2), 10, 10),
-        new THREE.MeshBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.55 }),
-      );
-      mesh.position.copy(position);
+      const sprite = makeGlowSprite(0x333333, false);
+      const base = sizeBasis * (0.5 + Math.random() * 0.4);
+      sprite.scale.set(base, base, 1);
+      sprite.material.opacity = 0.55;
+      sprite.position.copy(position);
       const duration = 1100 + Math.random() * 700;
-      this._addEffect(mesh, duration, (m, t) => {
-        m.position.copy(position).addScaledVector(dir, dist * easeOutCubic(t));
-        m.scale.setScalar(1 + t * 2.4);
-        m.material.opacity = 0.5 * (1 - t);
+      this._addEffect(sprite, duration, (spr, t) => {
+        spr.position.copy(position).addScaledVector(dir, dist * easeOutCubic(t));
+        const s = base * (1 + t * 2.4);
+        spr.scale.set(s, s, 1);
+        spr.material.opacity = 0.5 * (1 - t);
       });
     }
 
@@ -518,7 +558,10 @@ export class Game {
       if (t >= 1) {
         this.scene.remove(fx.mesh);
         if (fx.mesh.geometry) fx.mesh.geometry.dispose();
-        if (fx.mesh.material) fx.mesh.material.dispose();
+        if (fx.mesh.material) {
+          if (fx.mesh.material.map) fx.mesh.material.map.dispose();
+          fx.mesh.material.dispose();
+        }
         return false;
       }
       return true;
@@ -536,39 +579,11 @@ export class Game {
     }
   }
 
-  // Local ghost preview while the player is dragging the aim pad. Uses the
-  // exact same simulateFlight() the server will use to resolve the real shot.
-  previewShot(shooter, angle, power, planets, ships) {
-    const { vx, vy } = launchVelocity(angle, power, shooter.facing);
-    const launchOffset = 34 * shooter.facing;
-    const { path } = simulateFlight({
-      start: { x: shooter.x + launchOffset, y: shooter.y, vx, vy },
-      planets,
-      ships,
-      bounds: { minX: -200, maxX: this.arena.width + 200, minY: -200, maxY: this.arena.height + 200 },
-      maxSteps: 420,
-    });
-    const points = path.map((p) => new THREE.Vector3(this.worldX(p.x), this.worldY(p.y), 0));
-
-    if (this.ghostLine) this.scene.remove(this.ghostLine);
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineDashedMaterial({ color: 0x9db6ff, dashSize: 14, gapSize: 10, transparent: true, opacity: 0.8 });
-    this.ghostLine = new THREE.Line(geo, mat);
-    this.ghostLine.computeLineDistances();
-    this.scene.add(this.ghostLine);
-  }
-
-  clearGhost() {
-    if (this.ghostLine) {
-      this.scene.remove(this.ghostLine);
-      this.ghostLine = null;
-    }
-  }
-
   // Plays back the server-resolved flight path, dollying the camera out so
   // the whole gravity field between the ships is visible, then calls onDone.
+  // Deliberately no predicted-trajectory preview -- you aim on judgment, not
+  // a guide line, same as the original Angry Birds slingshot.
   playShot(path, onDone) {
-    this.clearGhost();
     const points = path.map((p) => new THREE.Vector3(this.worldX(p.x), this.worldY(p.y), 0));
     this.missile.visible = true;
     this.setCameraGoal(0, 0, Math.min(this.arena.width, 5600));
@@ -623,8 +638,18 @@ export class Game {
     const loop = () => {
       const now = performance.now();
       const goalDist = this.camTarget.dist * this.zoomMultiplier;
-      this.camState.x += (this.camTarget.x - this.camState.x) * 0.05;
-      this.camState.y += (this.camTarget.y - this.camState.y) * 0.05;
+
+      // While aiming, the base camera target is centered on YOUR ship (for
+      // precise close-up aiming). Zooming out re-centers toward the arena's
+      // middle instead of staying pinned to your ship, so scrolling out far
+      // enough actually brings the opponent into frame rather than just
+      // showing empty space on one side.
+      const zoomT = Math.min(1, Math.max(0, (this.zoomMultiplier - 1) / (MAX_ZOOM - 1)));
+      const lookX = this.camTarget.x * (1 - zoomT);
+      const lookY = this.camTarget.y * (1 - zoomT);
+
+      this.camState.x += (lookX - this.camState.x) * 0.05;
+      this.camState.y += (lookY - this.camState.y) * 0.05;
       this.camState.dist += (goalDist - this.camState.dist) * 0.08;
 
       let shakeX = 0;

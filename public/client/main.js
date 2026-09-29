@@ -197,16 +197,14 @@ function onPointerMove(evt) {
   const clampedDx = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dx));
   const clampedDy = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dy));
   aimStick.style.transform = `translate(${clampedDx}px, ${clampedDy}px)`;
-
-  const { angle, power } = currentAimFromVector(dx, dy);
-  game.previewShot(myShip(), angle, power, match.state.planets, match.state.ships);
+  // Deliberately no predicted-trajectory preview here -- you judge the shot
+  // yourself, same as the original Angry Birds slingshot.
 }
 
 function onPointerUp(evt) {
   if (!dragging || !match) return;
   dragging = false;
   aimStick.style.transform = 'translate(0px, 0px)';
-  game.clearGhost();
 
   if (match.state.turn !== match.you || match.state.finished) return;
   const { dx, dy } = padVectorFromEvent(evt);

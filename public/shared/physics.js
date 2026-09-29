@@ -1,12 +1,10 @@
-// Shared gravity + missile flight simulation.
-// Loaded as a plain ES module by BOTH the server (authoritative resolution)
-// and the browser client (live aim-preview ghost trail), so a shot always
-// resolves identically to what the aiming player previewed.
+// Shared gravity + missile flight simulation. A plain ES module so the
+// server can import it directly as the authoritative shot resolver.
 
 export const G = 6500;
 export const DT = 1 / 60;
 export const MAX_FLIGHT_STEPS = 1100; // ~18s of flight before we give up
-export const SHIP_HIT_RADIUS = 26;
+export const SHIP_HIT_RADIUS = 40; // matches the larger ship model's silhouette
 export const ARENA = { width: 5000, height: 2400 };
 
 // Acceleration on a point at (x, y) from every living planet.
