@@ -171,3 +171,27 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 #result h2 { font-size: 2.4rem; margin: 0; }
 #result-rank { opacity: 0.8; }
+
+#zoom-controls {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+#zoom-controls button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+}
+
+#zoom-controls button:hover { background: rgba(255, 255, 255, 0.16); }

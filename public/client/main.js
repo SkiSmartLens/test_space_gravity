@@ -37,6 +37,8 @@ const aimPad = el('aim-pad');
 const aimStick = el('aim-stick');
 const resultTitle = el('result-title');
 const resultRank = el('result-rank');
+const zoomInBtn = el('zoom-in');
+const zoomOutBtn = el('zoom-out');
 
 nameInput.value = identity.name;
 nameInput.addEventListener('change', () => {
@@ -49,6 +51,20 @@ const canvas = el('scene');
 const game = new Game(canvas, ARENA);
 game.start();
 window.__game = game; // debug hook for manual/automated visual testing
+
+// Manual zoom: scroll/pinch on the canvas, or the +/- buttons in the corner,
+// layer on top of whatever the automatic camera framing is doing.
+canvas.addEventListener(
+  'wheel',
+  (evt) => {
+    evt.preventDefault();
+    const factor = Math.exp(evt.deltaY * 0.0015);
+    game.adjustZoom(factor);
+  },
+  { passive: false },
+);
+zoomInBtn.addEventListener('click', () => game.adjustZoom(1 / 1.25));
+zoomOutBtn.addEventListener('click', () => game.adjustZoom(1.25));
 
 const socket = io();
 let match = null; // { id, mode, you, state }

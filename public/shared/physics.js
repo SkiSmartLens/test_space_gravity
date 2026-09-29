@@ -3,11 +3,11 @@
 // and the browser client (live aim-preview ghost trail), so a shot always
 // resolves identically to what the aiming player previewed.
 
-export const G = 9000;
+export const G = 6500;
 export const DT = 1 / 60;
 export const MAX_FLIGHT_STEPS = 1100; // ~18s of flight before we give up
 export const SHIP_HIT_RADIUS = 26;
-export const ARENA = { width: 4000, height: 1800 };
+export const ARENA = { width: 5000, height: 2400 };
 
 // Acceleration on a point at (x, y) from every living planet.
 export function gravityAt(x, y, planets) {
