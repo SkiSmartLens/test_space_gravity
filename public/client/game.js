@@ -11,6 +11,7 @@ const PLANET_PALETTES = [
 
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 6.5;
+const FOLLOW_CAM_DIST = 1500; // how close the camera stays while chasing the missile
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -374,9 +375,12 @@ export class Game {
     });
 
     this.missile = new THREE.Mesh(
-      new THREE.SphereGeometry(9, 12, 12),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa55, emissiveIntensity: 1.2 }),
+      new THREE.SphereGeometry(14, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa55, emissiveIntensity: 1.4 }),
     );
+    const missileGlow = makeGlowSprite(0xffcf8a, true);
+    missileGlow.scale.set(70, 70, 1);
+    this.missile.add(missileGlow);
     this.missile.visible = false;
     this.scene.add(this.missile);
   }
@@ -579,14 +583,16 @@ export class Game {
     }
   }
 
-  // Plays back the server-resolved flight path, dollying the camera out so
-  // the whole gravity field between the ships is visible, then calls onDone.
-  // Deliberately no predicted-trajectory preview -- you aim on judgment, not
-  // a guide line, same as the original Angry Birds slingshot.
+  // Plays back the server-resolved flight path with the camera CHASING the
+  // missile the whole way, rather than pulling back to a wide arena-wide
+  // shot. At full-arena zoom the missile was a couple of pixels against
+  // mostly empty black space -- you couldn't see it, couldn't see it curve,
+  // and the hit landed on your opponent felt instant because none of the
+  // travel was actually visible. Following it up close is what makes both
+  // the curve and the impact actually readable.
   playShot(path, onDone) {
     const points = path.map((p) => new THREE.Vector3(this.worldX(p.x), this.worldY(p.y), 0));
     this.missile.visible = true;
-    this.setCameraGoal(0, 0, Math.min(this.arena.width, 5600));
 
     const trailGeo = new THREE.BufferGeometry();
     const trailMat = new THREE.LineBasicMaterial({ color: 0xffcf8a, transparent: true, opacity: 0.7 });
@@ -607,6 +613,7 @@ export class Game {
       }
       const p = points[i];
       this.missile.position.copy(p);
+      this.setCameraGoal(p.x, p.y, FOLLOW_CAM_DIST);
       trailWindow.push(p.clone());
       if (trailWindow.length > 50) trailWindow.shift();
       trail.geometry.setFromPoints(trailWindow);
