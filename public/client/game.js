@@ -56,11 +56,12 @@ function makeGlowTexture(hex) {
   return texture;
 }
 
-function makeGlowSprite(hex, additive = true) {
+function makeGlowSprite(hex, additive = true, depthTest = true) {
   const mat = new THREE.SpriteMaterial({
     map: makeGlowTexture(hex),
     transparent: true,
     depthWrite: false,
+    depthTest,
     blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
   return new THREE.Sprite(mat);
@@ -429,8 +430,13 @@ export class Game {
     // Flash and fireball are soft camera-facing glow sprites rather than
     // geometric spheres -- a faceted lit sphere reads as a shaded ball, not
     // fire; a radial-gradient billboard is the standard real-VFX technique
-    // for an actual glow/flame look.
-    const flash = makeGlowSprite(0xfff6d8, true);
+    // for an actual glow/flame look. depthTest is off for flash/fireball/
+    // ring specifically: on a SHIP hit the ship itself isn't removed (unlike
+    // a destroyed planet), and these three stay centered exactly at the
+    // ship's own origin for their whole life, which sits inside its solid
+    // hull -- depth-tested, the ship's own geometry hid the entire "hit"
+    // effect behind itself, which is why hits looked like nothing happened.
+    const flash = makeGlowSprite(0xfff6d8, true, false);
     flash.position.copy(position);
     const flashBase = sizeBasis * 1.3;
     flash.scale.set(flashBase, flashBase, 1);
@@ -460,7 +466,7 @@ export class Game {
       { color: 0xff5a2e, growth: 6.4, duration: 900 },
     ];
     for (const spec of fireballSpecs) {
-      const sprite = makeGlowSprite(spec.color, true);
+      const sprite = makeGlowSprite(spec.color, true, false);
       sprite.position.copy(position);
       const base = sizeBasis * 0.9;
       sprite.scale.set(base, base, 1);
@@ -473,7 +479,7 @@ export class Game {
 
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(sizeBasis * 0.5, sizeBasis * 0.68, 48),
-      new THREE.MeshBasicMaterial({ color: 0xffe0a8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: 0xffe0a8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }),
     );
     ring.position.copy(position);
     this._addEffect(ring, 600, (m, t) => {
